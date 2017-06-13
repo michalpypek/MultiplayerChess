@@ -7,6 +7,8 @@ public class GameManager : MonoBehaviour
 {
 	public static GameManager instance;
 
+	public ChessBoard chessBoard;
+
 	public GameObject buttonHolder;
 	public GameObject connectMenu;
 	public GameObject hostMenu;
@@ -14,6 +16,7 @@ public class GameManager : MonoBehaviour
 	public GameObject serverPrefab;
 	public GameObject clientPrefab;
 	public InputField hostInput;
+	public InputField nameInput;
 
 	void Start()
 	{
@@ -48,6 +51,12 @@ public class GameManager : MonoBehaviour
 			server.Init();
 
 			var c = Instantiate(clientPrefab).GetComponent<Client>();
+			c.clientName = nameInput.text;
+			c.isHost = true;
+			if (c.clientName == "")
+			{
+				c.clientName = "Host";
+			}
 			c.ConnectToServer("127.0.0.1", 6321);
 		}
 		catch (System.Exception e)
@@ -72,6 +81,11 @@ public class GameManager : MonoBehaviour
 		try
 		{
 			var c = Instantiate(clientPrefab).GetComponent<Client>();
+			c.clientName = nameInput.text;
+			if(c.clientName == "")
+			{
+				c.clientName = "Client";
+			}
 			c.ConnectToServer(host, 6321);
 			connectMenu.SetActive(false);
 		}
@@ -88,5 +102,23 @@ public class GameManager : MonoBehaviour
 		buttonHolder.SetActive(true);
 		connectMenu.SetActive(false);
 		hostMenu.SetActive(false);
+
+		var server = GameObject.FindObjectOfType<Server>();
+		if(server != null)
+		{
+			Destroy(server.gameObject);
+		}
+
+		var cl = GameObject.FindObjectOfType<Client>();
+
+		if(cl != null)
+		{
+			Destroy(cl.gameObject);
+		}
+	}
+
+	public void StartGame()
+	{
+
 	}
 }

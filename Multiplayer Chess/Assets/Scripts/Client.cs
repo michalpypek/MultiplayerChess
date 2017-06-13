@@ -7,11 +7,20 @@ using UnityEngine;
 
 public class Client : MonoBehaviour
 {
+	public string clientName;
+	public bool isHost;
+
 	private bool socketReady;
 	private TcpClient socket;
 	private NetworkStream stream;
 	private StreamWriter writer;
 	private StreamReader reader;
+	private List<GameClient> players = new List<GameClient>();
+
+	void Start()
+	{
+		DontDestroyOnLoad(gameObject);
+	}
 
 	private void Update()
 	{
@@ -84,7 +93,35 @@ public class Client : MonoBehaviour
 	/// <param name="data"></param>
 	private void OnIncomingData(string data)
 	{
+		string[] aData = data.Split('|');
+
+		switch (aData[0])
+		{
+			case "SWHO":
+				for(int i = 1; i < aData.Length -1; i++)
+				{
+					UserConnected(aData[i], false);
+				}
+				Send("CWHO|" + clientName + "|" + (isHost? 1: 0));
+				break;
+			case "SCNN":
+				UserConnected(aData[1], false);
+				break;
+		}
 		Debug.Log(data);
+	}
+
+	private void UserConnected(string name, bool isHost)
+	{
+		GameClient c = new GameClient();
+		c.name = name;
+
+		players.Add(c);
+
+		if (players.Count == 2)
+		{
+			GameManager.instance.StartGame();
+		}
 	}
 
 	private void CloseSocket()
