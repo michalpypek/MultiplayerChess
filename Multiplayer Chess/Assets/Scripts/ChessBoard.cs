@@ -41,23 +41,21 @@ public class ChessBoard : MonoBehaviour
 	public int boardSize = 8; 
 
 	public bool isWhite;
+	public bool whiteTurn = true;
+	public bool isChecked = false;
+	public bool mate = false;
 
 	List<GameObject> clickableCells = new List<GameObject>();
 	Piece selectedPiece;
 	Client client;
-
-	void Start()
-	{
-		Init();
-	}
 
 	/// <summary>
 	/// Create the chessboard
 	/// </summary>
 	public void Init()
 	{
-		//client = FindObjectOfType<Client>();
-		//isWhite = client.isHost;
+		client = FindObjectOfType<Client>();
+		isWhite = client.isHost;
 
 		for (int i = 0; i < 32; i++)
 		{
@@ -110,8 +108,6 @@ public class ChessBoard : MonoBehaviour
 
 	public void CalculateMovesForAllPieces()
 	{
-
-
 		foreach (var row in board)
 		{
 			foreach (var cell in row)
@@ -124,10 +120,59 @@ public class ChessBoard : MonoBehaviour
 		}
 	}
 
+	public List<Vector2> GetPossibleOpponentMoves()
+	{
+		List<Vector2> moves = new List<Vector2>();
+		foreach (var row in board)
+		{
+			foreach (var cell in row)
+			{
+				if (!cell.isEmpty)
+				{
+					if (isWhite && cell.piece.color == Color.Black)
+					{
+						moves = moves.Union(GetPossibleMovesForPiece(cell.piece, true)).ToList();
+					}
+
+					if (!isWhite && cell.piece.color == Color.White)
+					{
+						moves = moves.Union(GetPossibleMovesForPiece(cell.piece, true)).ToList();
+					}
+				}
+			}
+		}
+		return moves;
+	}
+
 	public void SelectPiece(int x, int y)
 	{
 		Debug.Log(x + " " + y);
+		if (isWhite)
+		{
+			if (board[x][y].piece.color == Color.Black || !whiteTurn)
+			{
+				return;
+			}
+		}
+
+		else
+		{
+			if (board[x][y].piece.color == Color.White || whiteTurn)
+			{
+				return;
+			}
+		}
+
+		if(isChecked && board[x][y].piece.type != PieceType.King)
+		{
+			return;
+		}
+
+
 		selectedPiece = board[x][y].piece;
+
+
+
 		Debug.Log("Selected: " + selectedPiece.color + " " + selectedPiece.type +" at " + selectedPiece.posX +" " +selectedPiece.posY );
 
 		foreach (var item in selectedPiece.availablePositions)
@@ -139,6 +184,57 @@ public class ChessBoard : MonoBehaviour
 
 	public void MovePiece (Piece p, Vector2 targetPos, GameObject pieceObj)
 	{
+		int startx, starty;
+		startx = p.posX;
+		starty = p.posY;
+		board[p.posX][p.posY].isEmpty = true;
+		piecesObjects[p.posX][p.posY] = null;
+
+		Debug.Log("Before: " + p.posX + "  : " + p.posY);
+		p.posX = (int)targetPos.x;
+		p.posY = (int)targetPos.y;
+
+		if (!board[(int)targetPos.x][(int)targetPos.y].isEmpty)
+		{
+			if (piecesObjects[(int)targetPos.x][(int)targetPos.y] != null)
+			{
+				Destroy(piecesObjects[(int)targetPos.x][(int)targetPos.y]);
+			}
+		}
+
+
+		board[(int)targetPos.x][(int)targetPos.y].piece = p;
+		board[(int)targetPos.x][(int)targetPos.y].isEmpty = false;
+		piecesObjects[(int)targetPos.x][(int)targetPos.y] = pieceObj;
+		pieceObj.transform.position = targetPos;
+		Debug.Log("After: " + p.posX + "  : " + p.posY);
+
+		foreach (var item in clickableCells)
+		{
+			item.SetActive(false);
+		}
+
+		//CalculateMovesForAllPieces();
+		client.Send("CMOV|" + client.clientName+ "|" + startx + "|" + starty + "|" + (int)targetPos.x + "|" + (int)targetPos.y);
+		whiteTurn = !whiteTurn;
+	}
+
+	public void MovePiece (Vector2 targetPos)
+	{
+		MovePiece(selectedPiece, targetPos, piecesObjects[selectedPiece.posX][selectedPiece.posY]);
+	}
+
+	public void MovePieceFromServer (int startx, int starty, int targetx, int targety)
+	{
+		MovePieceFromServer(board[startx][starty].piece, new Vector2(targetx, targety), piecesObjects[startx][starty]);
+		
+	}
+
+	public void MovePieceFromServer(Piece p, Vector2 targetPos, GameObject pieceObj)
+	{
+		int startx, starty;
+		startx = p.posX;
+		starty = p.posY;
 		board[p.posX][p.posY].isEmpty = true;
 		piecesObjects[p.posX][p.posY] = null;
 
@@ -167,11 +263,7 @@ public class ChessBoard : MonoBehaviour
 		}
 
 		CalculateMovesForAllPieces();
-	}
-
-	public void MovePiece (Vector2 targetPos)
-	{
-		MovePiece(selectedPiece, targetPos, piecesObjects[selectedPiece.posX][selectedPiece.posY]);
+		whiteTurn = !whiteTurn;
 	}
 
 	void HighlightAvailableMovePositions()
@@ -406,6 +498,28 @@ public class ChessBoard : MonoBehaviour
 		return null;
 	}
 
+	List<Vector2> GetPossibleMovesForPiece(Piece piece, bool anyColor)
+	{
+		switch (piece.type)
+		{
+			case PieceType.Pawn:
+				return GetPossibleMovesForPawn(piece.posX, piece.posY, piece.color).Union(GetPossibleMovesForPawn(piece.posX, piece.posY, (Color)(((int)piece.color + 1) % 2))).ToList();
+			case PieceType.Rook:
+				return GetPossibleMovesForRook(piece.posX, piece.posY, piece.color).Union(GetPossibleMovesForRook(piece.posX, piece.posY, (Color)(((int)piece.color + 1) % 2))).ToList();
+			case PieceType.Knight:
+				return GetPossibleMovesForKnight(piece.posX, piece.posY, piece.color).Union(GetPossibleMovesForKnight(piece.posX, piece.posY, (Color)(((int)piece.color + 1) % 2))).ToList();
+			case PieceType.Bishop:
+				return GetPossibleMovesForBishop(piece.posX, piece.posY, piece.color).Union(GetPossibleMovesForBishop(piece.posX, piece.posY, (Color)(((int)piece.color + 1) % 2))).ToList();
+			case PieceType.Queen:
+				return GetPossibleMovesForQueen(piece.posX, piece.posY, piece.color).Union(GetPossibleMovesForQueen(piece.posX, piece.posY, (Color)(((int)piece.color + 1) % 2))).ToList();
+			case PieceType.King:
+				return GetPossibleMovesForKing(piece.posX, piece.posY, piece.color);
+		}
+
+		return null;
+	}
+
+
 	List<Vector2> GetPossibleMovesForPawn(int x, int y, Color col)
 	{
 		var moves = new List<Vector2>();
@@ -426,7 +540,7 @@ public class ChessBoard : MonoBehaviour
 
 			if (x - 1 >= 0 && y + 1 < boardSize && !board[x - 1][y + 1].isEmpty)
 			{
-				if (board[x - 1][y - 1].piece.color != col)
+				if (board[x - 1][y + 1].piece.color != col)
 				{
 					moves.Add(new Vector2(x - 1, y + 1));
 				}
@@ -442,7 +556,7 @@ public class ChessBoard : MonoBehaviour
 
 			if (x + 1 < boardSize && y - 1 >= 0 && !board[x + 1][y - 1].isEmpty)
 			{
-				if (board[x + 1][y + 1].piece.color != col)
+				if (board[x + 1][y - 1].piece.color != col)
 				{
 					moves.Add(new Vector2(x + 1, y - 1));
 				}
@@ -784,6 +898,74 @@ public class ChessBoard : MonoBehaviour
 	List<Vector2> GetPossibleMovesForKing(int x, int y, Color col)
 	{
 		var moves = new List<Vector2>();
+
+		if (isWhite && col == Color.White || !isWhite && col == Color.Black)
+		{
+			var enemyMoves = GetPossibleOpponentMoves();
+
+			if (enemyMoves.Contains(new Vector2(x, y)))
+			{
+				isChecked = true;
+				Debug.Log("check");
+			}
+
+			else
+			{
+				isChecked = false;
+			}
+
+			for (int _x = x - 1; _x < x + 2; _x++)
+			{
+				for (int _y = y - 1; _y < y + 2; _y++)
+				{
+					var pos = new Vector2(_x, _y);
+					if (!enemyMoves.Contains(pos))
+					{
+						if (_x > 0 && _x < boardSize && _y > 0 && _y < boardSize)
+						{
+							if (board[_x][_y].isEmpty)
+							{
+								moves.Add(pos);
+							}
+							else if (board[_x][_y].piece.color != col)
+							{
+								moves.Add(pos);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		else
+		{
+			for (int _x = x - 1; _x < x + 2; _x++)
+			{
+				for (int _y = y - 1; _y < y + 2; _y++)
+				{
+					var pos = new Vector2(_x, _y);
+
+					if (_x > 0 && _x < boardSize && _y > 0 && _y < boardSize)
+					{
+						if (board[_x][_y].isEmpty)
+						{
+							moves.Add(pos);
+						}
+						else if (board[_x][_y].piece.color != col)
+						{
+							moves.Add(pos);
+						}
+					}					
+				}
+			}
+		}
+
+		if(moves.Count == 0 && isChecked)
+		{
+			mate = true;
+			HandleMate();
+			Debug.Log("mate");
+		}
 		return moves;
 
 	}
@@ -798,6 +980,11 @@ public class ChessBoard : MonoBehaviour
 			}
 		}
 		return null;
+	}
+
+	private void HandleMate()
+	{
+		client.Send("CLOS|" + client.clientName);
 	}
 }
 

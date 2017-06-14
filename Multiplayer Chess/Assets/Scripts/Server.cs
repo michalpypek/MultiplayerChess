@@ -10,7 +10,7 @@ public class Server : MonoBehaviour
 {
 	public int port = 6321;
 
-	private List<ServerClient> clients;
+	public List<ServerClient> clients;
 	private List<ServerClient> disconnectList;
 
 	private TcpListener server;
@@ -97,7 +97,7 @@ public class Server : MonoBehaviour
 
 		StartListening();
 
-		Broadcast("SWHO|", clients[clients.Count - 1]);
+		Broadcast("SWHO|"+names, client);
 		Debug.Log("Somebody has connected");
 	}
 
@@ -133,6 +133,7 @@ public class Server : MonoBehaviour
 	/// <param name="_clients"></param>
 	private void Broadcast(string data, List<ServerClient> _clients)
 	{
+		Debug.Log("Broadcast: " + data);
 		foreach(var client in _clients)
 		{
 			try
@@ -173,6 +174,12 @@ public class Server : MonoBehaviour
 				client.clientName = aData[1];
 				client.isHost = (aData[2] == "1") ? true : false;
 				Broadcast("SCNN|" + client.clientName, clients);
+				break;
+			case "CMOV":
+				Broadcast("SMOV"+"|"+aData[1]+"|"+aData[2] + "|" +aData[3]+ "|" + aData[4] + "|" + aData[5], clients);
+				break;
+			case "CLOS":
+				Broadcast("SLOS|" + aData[1], clients);
 				break;
 		}
 	}

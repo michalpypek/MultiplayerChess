@@ -107,6 +107,22 @@ public class Client : MonoBehaviour
 			case "SCNN":
 				UserConnected(aData[1], false);
 				break;
+			case "SMOV":
+				if(clientName != aData[1])
+				{
+					GameManager.instance.chessBoard.MovePieceFromServer(int.Parse(aData[2]), int.Parse(aData[3]), int.Parse(aData[4]), int.Parse(aData[5]));
+				}
+				break;
+			case "SLOS":
+				if(clientName != aData[1])
+				{
+					GameManager.instance.WinScreen();
+				}
+				else
+				{
+					GameManager.instance.LoseScreen();
+				}
+				break;
 		}
 		Debug.Log(data);
 	}

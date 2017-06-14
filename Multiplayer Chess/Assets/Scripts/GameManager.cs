@@ -12,6 +12,12 @@ public class GameManager : MonoBehaviour
 	public GameObject buttonHolder;
 	public GameObject connectMenu;
 	public GameObject hostMenu;
+	public GameObject mainMenu;
+	public GameObject gameMenu;
+	public GameObject winScreen;
+	public GameObject loseScreen;
+	public Text turnText;
+	public Text checkText;
 
 	public GameObject serverPrefab;
 	public GameObject clientPrefab;
@@ -34,6 +40,12 @@ public class GameManager : MonoBehaviour
 		buttonHolder.SetActive(true);
 		connectMenu.SetActive(false);
 		hostMenu.SetActive(false);
+	}
+
+	void Update()
+	{
+		turnText.text = "Current turn: player " + (chessBoard.whiteTurn ? "white" : "black");
+		checkText.gameObject.SetActive(chessBoard.isChecked);
 	}
 
 	public void JoinButton()
@@ -119,6 +131,18 @@ public class GameManager : MonoBehaviour
 
 	public void StartGame()
 	{
+		mainMenu.SetActive(false);
+		gameMenu.SetActive(true);
+		chessBoard.Init();
+	}
 
+	public void WinScreen()
+	{
+		winScreen.SetActive(true);
+	}
+
+	public void LoseScreen()
+	{
+		loseScreen.SetActive(true);
 	}
 }
